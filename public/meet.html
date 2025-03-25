@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Meet Scheduler</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4285F4;
+            --error: #EA4335;
+            --success: #34A853;
+            --text: #3C4043;
+            --border: #DADCE0;
+            --bg: #F8F9FA;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: var(--bg);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        
+        h1 {
+            font-weight: 500;
+            font-size: 1.5rem;
+        }
+        
+        .content {
+            padding: 2rem;
+        }
+        
+        .auth-section, .meeting-form {
+            transition: all 0.3s ease;
+        }
+        
+        .meeting-form {
+            display: none;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        input, button {
+            width: 100%;
+            padding: 0.75rem;
+            font-size: 1rem;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+        
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #3367D6;
+        }
+        
+        button:disabled {
+            background: #BDBDBD;
+            cursor: not-allowed;
+        }
+        
+        .google-btn {
+            background: white;
+            color: var(--text);
+            border: 1px solid var(--border);
+            margin: 1rem 0;
+        }
+        
+        .google-btn:hover {
+            background: #F8F9FA;
+        }
+        
+        .google-icon {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+        }
+        
+        .message {
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+        
+        .error {
+            background: #FDECEA;
+            color: var(--error);
+            border-left: 4px solid var(--error);
+        }
+        
+        .success {
+            background: #E6F4EA;
+            color: var(--success);
+            border-left: 4px solid var(--success);
+        }
+        
+        .meet-link {
+            display: inline-block;
+            margin-top: 0.5rem;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            word-break: break-all;
+        }
+        
+        .meet-link:hover {
+            text-decoration: underline;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Google Meet Scheduler</h1>
+        </header>
+        
+        <div class="content">
+            <!-- Authentication Section -->
+            <div id="authSection" class="auth-section">
+                <p>Sign in with Google to create and schedule meetings</p>
+                <button id="loginBtn" class="google-btn">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" 
+                         alt="Google Logo" class="google-icon">
+                    Sign in with Google
+                </button>
+            </div>
+            
+            <!-- Meeting Form Section -->
+            <div id="meetingForm" class="meeting-form hidden">
+                <h2>Schedule New Meeting</h2>
+                <div class="form-group">
+                    <label for="summary">Meeting Title</label>
+                    <input type="text" id="summary" placeholder="Team Weekly Sync">
+                </div>
+                
+                <div class="form-group">
+                    <label for="startTime">Start Time</label>
+                    <input type="datetime-local" id="startTime">
+                </div>
+                
+                <div class="form-group">
+                    <label for="endTime">End Time</label>
+                    <input type="datetime-local" id="endTime">
+                </div>
+                
+                <button id="createMeetingBtn">
+                    <span id="createMeetingText">Create Meeting</span>
+                    <span id="createMeetingSpinner" class="loading hidden"></span>
+                </button>
+                
+                <div id="message" class="message hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const authSection = document.getElementById('authSection');
+            const meetingForm = document.getElementById('meetingForm');
+            const loginBtn = document.getElementById('loginBtn');
+            const createMeetingBtn = document.getElementById('createMeetingBtn');
+            const createMeetingText = document.getElementById('createMeetingText');
+            const createMeetingSpinner = document.getElementById('createMeetingSpinner');
+            const messageDiv = document.getElementById('message');
+            
+            // Check for existing token in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            
+            if (token) {
+                // User is authenticated - show meeting form
+                authSection.style.display = 'none';
+                meetingForm.style.display = 'block';
+                
+                // Set default meeting times (now + 30 minutes)
+                const now = new Date();
+                const startTime = new Date(now.getTime() + 30 * 60000); // 30 mins from now
+                const endTime = new Date(startTime.getTime() + 60 * 60000); // 1 hour duration
+                
+                document.getElementById('startTime').value = formatDateTimeLocal(startTime);
+                document.getElementById('endTime').value = formatDateTimeLocal(endTime);
+            }
+            
+            // Helper function to format datetime-local input
+            function formatDateTimeLocal(date) {
+                const pad = (num) => num.toString().padStart(2, '0');
+                return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+            }
+            
+            // Helper function to show messages
+            function showMessage(text, type) {
+                messageDiv.innerHTML = text;
+                messageDiv.className = `message ${type}`;
+                messageDiv.style.display = 'block';
+            }
+            
+            // Login Button Handler
+            loginBtn.addEventListener('click', async () => {
+                try {
+                    loginBtn.disabled = true;
+                    loginBtn.innerHTML = 'Redirecting to Google...';
+                    
+                    const response = await fetch('/auth');
+                    
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to get authentication URL');
+                    }
+                    
+                    const data = await response.json();
+                    window.location.href = data.url;
+                    
+                } catch (error) {
+                    showMessage(error.message, 'error');
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = `
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" 
+                             alt="Google Logo" class="google-icon">
+                        Sign in with Google
+                    `;
+                }
+            });
+            
+            // Create Meeting Button Handler
+            createMeetingBtn.addEventListener('click', async () => {
+                try {
+                    // Clear previous messages
+                    messageDiv.style.display = 'none';
+                    
+                    // Get form values
+                    const summary = document.getElementById('summary').value || 'Google Meet';
+                    const startTime = document.getElementById('startTime').value;
+                    const endTime = document.getElementById('endTime').value;
+                    
+                    // Validate inputs
+                    if (!startTime || !endTime) {
+                        throw new Error('Please select both start and end times');
+                    }
+                    
+                    const start = new Date(startTime);
+                    const end = new Date(endTime);
+                    
+                    if (start >= end) {
+                        throw new Error('End time must be after start time');
+                    }
+                    
+                    // Show loading state
+                    createMeetingText.textContent = 'Creating...';
+                    createMeetingSpinner.classList.remove('hidden');
+                    createMeetingBtn.disabled = true;
+                    
+                    // Make API request
+                    const response = await fetch('/create-meeting', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            token,
+                            summary,
+                            startTime: start.toISOString(),
+                            endTime: end.toISOString()
+                        }),
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || 'Failed to create meeting');
+                    }
+                    
+                    // Show success message with meeting links
+                    showMessage(`
+                        <p><strong>Meeting created successfully!</strong></p>
+                        <p><a href="${data.meetLink}" class="meet-link" target="_blank">Join Meeting Now</a></p>
+                        <p><a href="${data.htmlLink}" class="meet-link" target="_blank">View in Google Calendar</a></p>
+                    `, 'success');
+                    
+                } catch (error) {
+                    showMessage(error.message, 'error');
+                    console.error('Meeting creation error:', error);
+                } finally {
+                    // Reset button state
+                    createMeetingText.textContent = 'Create Meeting';
+                    createMeetingSpinner.classList.add('hidden');
+                    createMeetingBtn.disabled = false;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
